@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evd-catheter-segmentation"
+version = "0.1.0"
+description = "Training and testing code for thin EVD catheter segmentation."
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+  "fastvit_models*",
+  "other_models*",
+  "reports*",
+  "utils*",
+]
+exclude = ["datasets*", "outputs*", "third_party*", "sam2*", "sam3*"]

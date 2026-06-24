@@ -1,0 +1,41 @@
+# Python/cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Environments and local settings
+.env
+.venv/
+venv/
+*.egg-info/
+
+# Third-party repositories and local dependency downloads
+third_party/
+sam2/
+sam3/
+
+# Training outputs and generated export artifacts
+outputs/
+export/output_models_int8_npu/generated/
+
+# Large or access-controlled datasets
+datasets/real_dataset/
+datasets/synthetic_dataset/
+datasets/external_test_catheter/
+datasets/create_external_test_set/source_videos/
+datasets/create_external_test_set/third_party/
+
+# Model weights, deployment binaries, and local archives
+*.pth
+*.pt
+*.pth.tar
+*.ckpt
+*.onnx
+*.engine
+*.tflite
+*.mlpackage/
+*.zip
+*.mp4

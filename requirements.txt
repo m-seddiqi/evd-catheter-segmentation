@@ -1,0 +1,14 @@
+# Core training/evaluation
+numpy>=1.26
+Pillow>=10.0
+PyYAML>=6.0
+scipy>=1.11
+timm>=1.0
+torch>=2.2
+torchvision>=0.17
+tqdm>=4.65
+
+# Synthetic scene generation
+trimesh>=4.0
+pyrender>=0.1.45
+PyOpenGL>=3.1

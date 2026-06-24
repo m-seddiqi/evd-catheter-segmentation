@@ -1,0 +1,7 @@
+/real_dataset
+/synthetic_dataset
+/external_test_catheter
+/create_external_test_set/source_videos/
+/create_external_test_set/third_party/
+__pycache__/
+*.py[cod]
