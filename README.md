@@ -47,12 +47,13 @@ datasets/create_synthetic_dataset/3d_tools/background_img/
 The released model checkpoints are public:
 
 ```text
-https://huggingface.co/mussed/evd_catheter_segmentation/resolve/main/paper_checkpoint/
-https://huggingface.co/mussed/evd_catheter_segmentation/resolve/main/int8_paper_checkpoints/
+https://huggingface.co/mussed/evd_catheter_segmentation/resolve/main/paper_checkpoint.zip
+https://huggingface.co/mussed/evd_catheter_segmentation/resolve/main/int8_paper_checkpoints.zip
 ```
 
-Place FP32 checkpoints under `paper_checkpoint/` and INT8/NPU exports under
-`paper_checkpoints_int8/` if they are not already present.
+Extract `paper_checkpoint.zip` into `paper_checkpoint/`. Extract
+`int8_paper_checkpoints.zip` into `paper_checkpoints_int8/` if the INT8/NPU
+exports are needed.
 
 ## Setup
 
