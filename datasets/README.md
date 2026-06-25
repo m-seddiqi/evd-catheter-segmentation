@@ -33,6 +33,11 @@ datasets/real_dataset/
     masks/
 ```
 
+The default validation scene names in `configs/train.yaml` are aligned with the
+paper experiments. Some real-data scenes were split or reorganized during later
+curation; the released layout and default config preserve the paper-compatible
+validation selection.
+
 ## External Test Dataset
 
 `datasets/external_test_catheter/` contains the external catheter test scenes
@@ -52,15 +57,15 @@ datasets/external_test_catheter/
   scene_*/masks/
 ```
 
-If you want to create masks for new videos rather than use the paper external
-test set, see:
+If the archive is not available, the evaluation frames and prompted masks can be
+reconstructed from the public video references and annotations in:
 
 ```text
 datasets/create_external_test_set/
 ```
 
-That folder contains a generic segment extraction and prompted SAM3 propagation
-workflow.
+That folder documents the source video URLs, fixed frame ranges, point prompts,
+and SAM3 mask propagation workflow used to rebuild the external test set.
 
 ## Synthetic Dataset
 
@@ -91,3 +96,9 @@ https://huggingface.co/datasets/mussed/evd_catheter_segmentation_datasets/resolv
 Replace or augment `datasets/create_synthetic_dataset/3d_tools/background_img/`
 with the extracted `background_img/` folder before generating the full paper
 synthetic set.
+
+Regenerating synthetic data with the released settings should produce comparable
+training behavior, but exact results can vary with renderer/library versions,
+hardware, random seeds, and whether the full background archive is available.
+Use the released checkpoints for exact paper-model evaluation, and regenerated
+synthetic data for reproducible training experiments and adaptation studies.

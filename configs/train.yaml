@@ -24,7 +24,7 @@ data:
 
   synthetic_root: "datasets/synthetic_dataset"
   # e0 is always synthetic validation. Synthetic training cycles through e1, e2, ...
-  synthetic_val_folder: "e1" # "e0"
+  synthetic_val_folder: "e0"
   synthetic_train_start_epoch: 1
   synthetic_mask_subdir: "masks"
   # Used only when dataset_source == "both": combine validation as
@@ -33,7 +33,7 @@ data:
   # Used only when dataset_source == "both": rotate through this fraction of
   # real TRAIN frames each epoch. With 0.10, every real train frame is seen
   # once after 10 epochs.
-  catheter_fraction_when_both: 0.10
+  catheter_fraction_when_both: 0.20
   catheter_fraction_seed: 42
   test_root: "datasets/external_test_catheter"
   test_mask_subdir: "masks"

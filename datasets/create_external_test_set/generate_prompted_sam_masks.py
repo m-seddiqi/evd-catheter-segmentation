@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Generate prompted SAM3 masks for video-frame datasets.
+"""Generate prompted SAM3 masks for the reconstructed external-test frames.
 
 The script reads `selected_points.json` by default and writes one PNG mask per
-frame under `<dataset-root>/<scene>/masks/`. The SAM3 source tree and checkpoint
-are external inputs and can be placed under `third_party/sam3/`.
+frame under `<dataset-root>/<scene>/masks/`. The SAM3 source tree and
+checkpoint are external inputs and should be placed under `third_party/sam3/`.
 """
 
 from __future__ import annotations
@@ -242,7 +242,7 @@ def _build_sam3_model(args: argparse.Namespace):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate prompted SAM3 masks for video scenes.")
+    parser = argparse.ArgumentParser(description="Generate prompted SAM3 masks for external-test scenes.")
     parser.add_argument("--dataset-root", type=Path, default=_default_dataset_root())
     parser.add_argument("--points-json", type=Path, default=_default_points_json())
     parser.add_argument("--checkpoint", type=Path, default=None, help="SAM3 checkpoint path.")

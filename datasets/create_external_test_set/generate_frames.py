@@ -1,135 +1,95 @@
 #!/usr/bin/env python3
-"""Extract image windows from user-provided videos.
+"""Rebuild the external-test catheter frames from source videos.
 
-Define one or more scenes in a segment JSON file, place the corresponding
-videos under ``source_videos/`` or pass ``--video-dir``, and this script writes
-JPEG frames in the dataset layout expected by the evaluation code.
+Place `yt1.mp4`, `yt2.mp4`, `yt3.mp4`, and `yt4.mp4` under `source_videos/`.
+The extracted frame windows are fixed to the released prompt file.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import math
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Optional, Tuple
+
+
+TimePoint = Tuple[int, int]  # minute, second
+
+
+@dataclass(frozen=True)
+class VideoSource:
+    key: str
+    filename: str
+    legacy_prefix: Optional[str] = None
 
 
 @dataclass(frozen=True)
 class SceneSpec:
     scene_id: str
-    video_file: str
-    start_frame: int | None = None
-    end_frame: int | None = None
-    start_time: float | None = None
-    end_time: float | None = None
+    video_key: str
+    start_time: TimePoint
+    end_time: TimePoint
+    start_frame: int
+    end_frame: int
+
+
+VIDEO_SOURCES: dict[str, VideoSource] = {
+    "yt1": VideoSource("yt1", "yt1.mp4", legacy_prefix="1"),
+    "yt2": VideoSource("yt2", "yt2.mp4", legacy_prefix="2"),
+    "yt3": VideoSource("yt3", "yt3.mp4", legacy_prefix="3"),
+    "yt4": VideoSource("yt4", "yt4.mp4", legacy_prefix="4"),
+}
+
+
+SCENE_SPECS: tuple[SceneSpec, ...] = (
+    SceneSpec("scene_yt1_001", "yt1", (3, 2), (3, 7), 5454, 5604),
+    SceneSpec("scene_yt2_002", "yt2", (2, 25), (2, 53), 4359, 5184),
+    SceneSpec("scene_yt3_003", "yt3", (6, 43), (7, 43), 10075, 11575),
+    SceneSpec("scene_yt4_004", "yt4", (1, 38), (2, 19), 2940, 4170),
+)
 
 
 def _default_video_dir() -> Path:
     return Path(__file__).resolve().parent / "source_videos"
 
 
-def _default_segments_json() -> Path:
-    return Path(__file__).resolve().parent / "video_segments.json"
-
-
 def _default_output_root() -> Path:
     return Path(__file__).resolve().parents[1] / "external_test_catheter"
 
 
-def _parse_time_seconds(value: Any) -> float:
-    if isinstance(value, (int, float)):
-        return float(value)
-    if not isinstance(value, str):
-        raise TypeError(f"Time values must be seconds or HH:MM:SS strings, got {type(value)!r}")
-
-    parts = value.strip().split(":")
-    if not 1 <= len(parts) <= 3:
-        raise ValueError(f"Invalid time value: {value!r}")
-    total = 0.0
-    for part in parts:
-        total = total * 60.0 + float(part)
-    return total
+def _default_points_json() -> Path:
+    return Path(__file__).resolve().parent / "selected_points.json"
 
 
-def _format_time(seconds: float | None) -> str:
-    if seconds is None:
-        return "-"
-    whole = int(seconds)
-    frac = seconds - whole
-    minute, second = divmod(whole, 60)
-    hour, minute = divmod(minute, 60)
-    suffix = f"{frac:.3f}"[1:] if frac else ""
-    if hour:
-        return f"{hour:02d}:{minute:02d}:{second:02d}{suffix}"
-    return f"{minute:02d}:{second:02d}{suffix}"
+def _format_time(t: TimePoint) -> str:
+    minute, second = t
+    return f"{minute:02d}:{second:02d}"
 
 
-def _load_scene_specs(path: Path) -> list[SceneSpec]:
-    if not path.exists():
-        raise FileNotFoundError(
-            f"Segment JSON not found: {path}\n"
-            "Create it from video_segments.example.json or pass --segments-json."
-        )
+def _find_video(video_dir: Path, source: VideoSource, allow_prefix_fallback: bool) -> Path:
+    expected = video_dir / source.filename
+    if expected.exists():
+        return expected
 
-    with path.open("r", encoding="utf-8") as handle:
-        cfg = json.load(handle)
-
-    scenes = cfg.get("scenes", cfg) if isinstance(cfg, dict) else cfg
-    if not isinstance(scenes, list) or not scenes:
-        raise ValueError("Segment JSON must contain a non-empty 'scenes' list.")
-
-    specs: list[SceneSpec] = []
-    for idx, raw_scene in enumerate(scenes):
-        if not isinstance(raw_scene, dict):
-            raise TypeError(f"Scene entry {idx} must be an object.")
-
-        scene_id = str(raw_scene.get("scene_id", "")).strip()
-        video_file = str(raw_scene.get("video_file", "")).strip()
-        if not scene_id:
-            raise ValueError(f"Scene entry {idx} is missing 'scene_id'.")
-        if not video_file:
-            raise ValueError(f"Scene entry {idx} is missing 'video_file'.")
-
-        start_frame = raw_scene.get("start_frame")
-        end_frame = raw_scene.get("end_frame")
-        start_time = raw_scene.get("start_time")
-        end_time = raw_scene.get("end_time")
-
-        specs.append(
-            SceneSpec(
-                scene_id=scene_id,
-                video_file=video_file,
-                start_frame=int(start_frame) if start_frame is not None else None,
-                end_frame=int(end_frame) if end_frame is not None else None,
-                start_time=_parse_time_seconds(start_time) if start_time is not None else None,
-                end_time=_parse_time_seconds(end_time) if end_time is not None else None,
+    if allow_prefix_fallback and source.legacy_prefix is not None:
+        matches = sorted(video_dir.glob(f"{source.legacy_prefix}_*.mp4"))
+        if len(matches) == 1:
+            print(f"{source.key}: using legacy local video name {matches[0].name}")
+            return matches[0]
+        if len(matches) > 1:
+            names = ", ".join(p.name for p in matches)
+            raise RuntimeError(
+                f"{source.key}: expected one legacy video with prefix "
+                f"'{source.legacy_prefix}_', found: {names}"
             )
-        )
-    return specs
 
-
-def _resolve_frame_window(spec: SceneSpec, fps: float) -> tuple[int, int]:
-    if spec.start_frame is not None or spec.end_frame is not None:
-        if spec.start_frame is None or spec.end_frame is None:
-            raise ValueError(f"{spec.scene_id}: provide both start_frame and end_frame.")
-        start_frame = spec.start_frame
-        end_frame = spec.end_frame
-    else:
-        if spec.start_time is None or spec.end_time is None:
-            raise ValueError(
-                f"{spec.scene_id}: provide start_frame/end_frame or start_time/end_time."
-            )
-        start_frame = int(math.floor(spec.start_time * fps))
-        end_frame = int(math.ceil(spec.end_time * fps))
-
-    if start_frame < 0:
-        raise ValueError(f"{spec.scene_id}: start frame must be non-negative.")
-    if end_frame < start_frame:
-        raise ValueError(f"{spec.scene_id}: end frame must be >= start frame.")
-    return start_frame, end_frame
+    raise FileNotFoundError(
+        f"Missing {source.key} video.\n"
+        f"Expected source video path:\n  {expected}\n"
+        "Use --allow-prefix-fallback only for older local copies named like '1_*.mp4'."
+    )
 
 
 def _write_scene_frames(
@@ -150,21 +110,17 @@ def _write_scene_frames(
     try:
         fps = float(cap.get(cv2.CAP_PROP_FPS))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        if fps <= 0:
-            raise RuntimeError(f"{spec.scene_id}: could not read FPS from {video_path.name}")
-
-        start_frame, end_frame = _resolve_frame_window(spec, fps)
-        expected_count = end_frame - start_frame + 1
-        if total_frames and end_frame >= total_frames:
+        expected_count = spec.end_frame - spec.start_frame + 1
+        if total_frames and spec.end_frame >= total_frames:
             raise RuntimeError(
-                f"{spec.scene_id}: requested frame {end_frame}, but "
+                f"{spec.scene_id}: requested frame {spec.end_frame}, but "
                 f"{video_path.name} reports only {total_frames} frames"
             )
 
         print(
             f"{spec.scene_id}: {video_path.name} "
             f"time={_format_time(spec.start_time)}-{_format_time(spec.end_time)} "
-            f"fps={fps:.6g} frames={start_frame}-{end_frame} "
+            f"fps={fps:.6g} frames={spec.start_frame}-{spec.end_frame} "
             f"count={expected_count}"
         )
         if dry_run:
@@ -173,10 +129,10 @@ def _write_scene_frames(
         images_dir = output_root / spec.scene_id / "images"
         images_dir.mkdir(parents=True, exist_ok=True)
 
-        cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-        current_frame = start_frame
+        cap.set(cv2.CAP_PROP_POS_FRAMES, spec.start_frame)
+        current_frame = spec.start_frame
         written = 0
-        while current_frame <= end_frame:
+        while current_frame <= spec.end_frame:
             ok, frame = cap.read()
             if not ok:
                 raise RuntimeError(
@@ -228,19 +184,19 @@ def _copy_points(points_json: Path, output_root: Path, overwrite: bool, dry_run:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Extract scene frames from user-provided videos.")
+    parser = argparse.ArgumentParser(description="Extract external-test frames from public videos.")
     parser.add_argument("--video-dir", type=Path, default=_default_video_dir())
-    parser.add_argument("--segments-json", type=Path, default=_default_segments_json())
     parser.add_argument("--output-root", type=Path, default=_default_output_root())
-    parser.add_argument(
-        "--points-json",
-        type=Path,
-        default=None,
-        help="Optional prompt JSON to validate and copy to the output root.",
-    )
+    parser.add_argument("--points-json", type=Path, default=_default_points_json())
     parser.add_argument("--jpeg-quality", type=int, default=95)
     parser.add_argument("--overwrite", action="store_true", help="Allow replacing existing frames/points.")
+    parser.add_argument("--no-copy-points", action="store_true", help="Do not copy selected_points.json.")
     parser.add_argument("--dry-run", action="store_true", help="Print frame ranges without writing files.")
+    parser.add_argument(
+        "--allow-prefix-fallback",
+        action="store_true",
+        help="Accept older local names like 1_*.mp4 if yt1.mp4 is missing.",
+    )
     return parser.parse_args()
 
 
@@ -248,16 +204,15 @@ def main() -> None:
     args = parse_args()
     video_dir = args.video_dir.resolve()
     output_root = args.output_root.resolve()
-    specs = _load_scene_specs(args.segments_json.resolve())
 
     total = 0
-    for spec in specs:
-        video_path = (video_dir / spec.video_file).resolve()
-        if not video_path.exists():
-            raise FileNotFoundError(
-                f"{spec.scene_id}: missing source video {video_path}\n"
-                "Place videos under --video-dir or update video_file in the segment JSON."
-            )
+    for spec in SCENE_SPECS:
+        source = VIDEO_SOURCES[spec.video_key]
+        video_path = _find_video(
+            video_dir=video_dir,
+            source=source,
+            allow_prefix_fallback=bool(args.allow_prefix_fallback),
+        )
         total += _write_scene_frames(
             spec=spec,
             video_path=video_path,
@@ -267,7 +222,7 @@ def main() -> None:
             jpeg_quality=int(args.jpeg_quality),
         )
 
-    if args.points_json is not None:
+    if not args.no_copy_points:
         _copy_points(
             points_json=args.points_json.resolve(),
             output_root=output_root,
